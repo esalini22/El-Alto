@@ -1,0 +1,1 @@
+La API es más rápida con usos subsecuentes, ya que en el primer uso debe cargar la data de las estaciones
