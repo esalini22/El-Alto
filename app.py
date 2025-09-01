@@ -1,4 +1,4 @@
-import json, requests, math, sys
+import json, requests, math
 from flask import Flask, jsonify, request, Response
 
 app = Flask(__name__)
@@ -17,7 +17,7 @@ endpoints api bencinas:
 cache = { "stations": None, "fuel": {}, "marcas": {} }
 
 #pitagoras
-def distance(lat1, lat2, lng1, lng2):
+def distance(lat1: float, lat2: float, lng1: float, lng2: float):
     return math.sqrt(abs(lat1-lat2)**2+abs(lng1-lng2)**2)
 
 #filtered = [s for s in stations_cache["data"] if s["ubicacion"]["latitud"]=="direccion"]
@@ -55,35 +55,36 @@ def init_stations():
 
 @app.route('/api/stations/search', methods=['GET'])
 def stationsGET():
-    data = request.args
+    DATA = request.args
 
-    print(data)
+    print(DATA)
 
-    if "lat" not in data:
+    if "lat" not in DATA:
         return jsonify({"success": False, "error": "lat query parameter required"}), 400
 
-    if "lng" not in data:
+    if "lng" not in DATA:
         return jsonify({"success": False, "error": "lng query parameter required"}), 400
 
-    if "product" not in data:
+    if "product" not in DATA:
         return jsonify({"success": False, "error": "product query parameter required"}), 400
 
-    lat = data.get("lat", type=float)
-    lng = data.get("lat", type=float)
-    product = data.get("product").lower()
+    #falta un type checking mas estrico en caso de que el input este mal
+    LAT: float = DATA.get("lat", type=float)
+    LNG: float  = DATA.get("lat", type=float)
+    PRODUCT: str  = DATA.get("product").lower()
 
-    if lat < -90 or lat > 90:
+    if LAT < -90 or LAT > 90:
         return jsonify({"success": False, "error": "invalid lat query parameter value"}), 400
 
-    if lng < -180 or lat > 180:
+    if LNG < -180 or LNG > 180:
         return jsonify({"success": False, "error": "invalid lng query parameter value"}), 400
 
-    if product not in ("93", "95", "97", "diesel", "kerosene"):
+    if PRODUCT not in ("93", "95", "97", "diesel", "kerosene"):
         return jsonify({"success": False, "error": "invalid product query parameter value"}), 400
 
-    nearest = data.get("nearest", "false").lower() == "true"
-    store = data.get("store", "false").lower() == "true"
-    cheapest = data.get("cheapest", "false").lower() == "true"
+    NEAREST: bool = DATA.get("nearest", "false").lower() == "true"
+    STORE: bool = DATA.get("store", "false").lower() == "true"
+    CHEAPEST: bool = DATA.get("cheapest", "false").lower() == "true"
 
     #inicializamos el cache de estaciones
     if cache["stations"] is None or len(cache["stations"])==0:
@@ -94,7 +95,7 @@ def stationsGET():
         init_marcas()
 
     #aqui se guardan las estaciones filtradas
-    stations = []
+    stations: dict[str, ] = []
 
     #se filtra por tipo de producto
     for item in cache["stations"]["data"]:
@@ -109,27 +110,12 @@ def stationsGET():
             "region": item["region"],
             "latitud": station_latitud,
             "longitud": station_longitud,
-            "distancia(lineal)": round(distance(lat, station_latitud, lng, station_longitud),10),
-            "precios"+product: 0
+            "distancia(lineal)": round(distance(LAT, station_latitud, LNG, station_longitud),10),
+            "precios"+PRODUCT: 0
         }
 
-        '''
-        #se deben manejar casos y excepciones en que datos de json esten mal formateados
-        station["id"] = item["id"]
-        station["compania"] = cache["marcas"][item["marca"]] #se debe sacar compañia de acuerdo a id de marca
-        station["direccion"] = item["direccion"]
-        station["comuna"] = item["comuna"]
-        station["region"] = item["region"]
-        station["latitud"] = float(item["latitud"].replace(",","."))
-        station["longitud"] = float(item["longitud"].replace(",","."))
-        #station["distancia(lineal)"] = "{:.2f}".format(distance(lat, station["latitud"], lng, station["longitud"]))
-        #station["latitud"] = "{:.10f}".format(station["latitud"])
-        #station["longitud"] = "{:.10f}".format(station["longitud"])
-        station["precios"+product] = 0
-        '''
-
         for fuel in item["combustibles"]:
-            if product in fuel["nombre_largo"].lower():
+            if PRODUCT in fuel["nombre_largo"].lower():
                 if fuel["precio"] is None:
                     continue
                 price = fuel["precio"]
@@ -143,10 +129,11 @@ def stationsGET():
                 #eliminamos el punto
                 else:
                     price = int(price.replace(".",""))
-                station["precios"+product] += price
+                station["precios"+PRODUCT] += price
 
         #estacion no contiene combustible filtrado
-        if station["precios"+product] == 0:
+        #no se añade estacion a arreglo
+        if station["precios"+PRODUCT] == 0:
             continue
         
         stations.append(station)
@@ -155,28 +142,28 @@ def stationsGET():
     result = stations
 
     #buscamos la mas barata
-    if cheapest is True:
-        lowestPrice = 2**31
+    if CHEAPEST is True:
+        lowestPrice: int = 2**31
         stations = []
         #primero buscamos el valor mas barato
         for station in result:
-            if station["precios"+product] < lowestPrice:
-                lowestPrice = station["precios"+product]
+            if station["precios"+PRODUCT] < lowestPrice:
+                lowestPrice = station["precios"+PRODUCT]
 
         print("lowestPrice: "+str(lowestPrice))
 
         #ahora devolvemos todas las estaciones con ese valor
         for station in result:
-            if station["precios"+product] == lowestPrice:
+            if station["precios"+PRODUCT] == lowestPrice:
                 stations.append(station)
 
         result = stations
 
     #ahora buscamos la estacion mas cercana    
-    #if nearest == True:
+    #if NEAREST is True:
 
     #filtramos las que tienen tienda
-    #if store == True:
+    #if STORE is True:
         
     
     #no se usa jsonify para que no cambie orden de keys
