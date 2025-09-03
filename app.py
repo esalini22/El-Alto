@@ -16,12 +16,8 @@ endpoints api bencinas:
 #json de estaciones y dict de marcas
 cache = { "stations": None, "marcas": {} }
 
-#devuelve la distancia euclideana
-def distance(lat1: float, lat2: float, lng1: float, lng2: float):
-    return math.sqrt(abs(lat1-lat2)**2+abs(lng1-lng2)**2)
-
 #devuelve la distancia lineal en km
-def in_radius(lat1: float, lat2: float, lng1: float, lng2: float):
+def distance(lat1: float, lat2: float, lng1: float, lng2: float):
     y = abs(lat1-lat2)*111.32
     x = abs(lng1-lng2)*111.32*math.cos((lat1+lat2)/2)
     return math.sqrt((x**2)+(y**2))
@@ -88,7 +84,10 @@ def stationsGET():
     NEAREST: bool = DATA.get("nearest", "false").lower() == "true"
     STORE: bool = DATA.get("store", "false").lower() == "true"
     CHEAPEST: bool = DATA.get("cheapest", "false").lower() == "true"
-
+    
+    #los productos en la API son 93, 95, 97, DI, y KE
+    producto = PRODUCT[0:2].upper()
+    
     #inicializamos el cache de estaciones
     if cache["stations"] is None or len(cache["stations"])==0:
         init_stations()
@@ -107,8 +106,8 @@ def stationsGET():
         station_longitud = round(float(item["longitud"].replace(",",".")),10)
         
         #estacion esta fuera de radio
-        radius = in_radius(LAT, station_latitud, LNG, station_longitud)
-        if radius>20:
+        distancia_lineal = distance(LAT, station_latitud, LNG, station_longitud)
+        if distancia_lineal>20:
             continue
         
         if "tiene_tienda" not in item:
@@ -123,13 +122,14 @@ def stationsGET():
             "region": item["region"],
             "latitud": station_latitud,
             "longitud": station_longitud,
-            "distancia(lineal)": round(distance(LAT, station_latitud, LNG, station_longitud),10),
-            "precios"+PRODUCT: 0,
+            "distancia(lineal)": round(distancia_lineal,10),
+            "precios"+producto: 0, #autoservicio
+            "preciosA"+producto: 0, #asistido
             "tiene_tienda": item["tiene_tienda"]
         }
 
         for fuel in item["combustibles"]:
-            if PRODUCT in fuel["nombre_largo"].lower():
+            if producto == fuel["nombre_corto"]:
                 if fuel["precio"] is None:
                     continue
                 price = fuel["precio"]
@@ -143,11 +143,26 @@ def stationsGET():
                 #eliminamos el punto
                 else:
                     price = int(price.replace(".",""))
-                station["precios"+PRODUCT] += price
+                station["precios"+producto] += price
+            elif 'A'+producto == fuel["nombre_corto"]:
+                if fuel["precio"] is None:
+                    continue
+                price = fuel["precio"]
+
+                #el punto es separador de decimales (y los decimales siempre son 0 en el precio)
+                #nos quedamos con el lado izquierdo del punto
+                if len(price.split(".")[0])>2:
+                    price = int(price.split(".")[0])
+
+                #el punto es separador de miles
+                #eliminamos el punto
+                else:
+                    price = int(price.replace(".",""))
+                station["preciosA"+producto] += price
 
         #estacion no contiene combustible filtrado
         #no se añade estacion a arreglo
-        if station["precios"+PRODUCT] == 0:
+        if station["precios"+producto] == 0 and station["preciosA"+producto] == 0:
             continue
         
         stations.append(station)
@@ -164,17 +179,20 @@ def stationsGET():
         result = stations
         
     #buscamos la mas barata
+    #aca se toma el producto ya sea autoservicio o asistido
     if CHEAPEST is True:
         lowestPrice: int = 2**31
         stations = []
         #primero buscamos el valor mas barato
         for station in result:
-            if station["precios"+PRODUCT] < lowestPrice:
-                lowestPrice = station["precios"+PRODUCT]
+            if station["precios"+producto] > 0 and station["precios"+producto] < lowestPrice:
+                lowestPrice = station["precios"+producto]
+            elif station["preciosA"+producto] > 0 and station["preciosA"+producto] < lowestPrice:
+                lowestPrice = station["preciosA"+producto]
 
         #ahora devolvemos todas las estaciones con ese valor
         for station in result:
-            if station["precios"+PRODUCT] == lowestPrice:
+            if station["precios"+producto] == lowestPrice or station["preciosA"+producto] == lowestPrice:
                 stations.append(station)
 
         result = stations
