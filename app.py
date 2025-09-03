@@ -77,7 +77,7 @@ def stationsGET():
             "region": item["region"],
             "latitud": station_latitud,
             "longitud": station_longitud,
-            "distancia(lineal)": round(distancia_lineal,10),
+            "distancia(lineal)": round(distancia_lineal,2),
             "precios"+producto: 0, #autoservicio
             "preciosA"+producto: 0, #asistido
             "tiene_tienda": item["tiene_tienda"]
@@ -110,6 +110,8 @@ def stationsGET():
     
     #no se usa jsonify para que no cambie orden de keys
     #return jsonify({"success": True, "data": result})
+
+    stations = clean_empty_product(stations, producto)
 
     if len(stations)==1:
         stations = stations[0]
