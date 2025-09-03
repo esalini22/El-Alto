@@ -1,4 +1,5 @@
-Para levantar la API, ejecutar desde una terminal de linux `python3 app.py`
+Para levantar la API,s e debe instalar la librería `Flask`, y luego ejecutar desde una terminal de linux `python3 app.py`
+ 
 
 El programa se divide en `app.py` y `utils/helpers.py`, este último archivo contiene funciones de utilidad para la API, tales como funciones para inicializar la cache con los datos de las estaciones, calcular la distancia entre dos coordenadas y expresarlo en km, y filtrar las estaciones.
 
@@ -26,3 +27,23 @@ Solo hace uso de estaciones dentro de un radio de aproximadamente 7km alrededor 
 Guarda el precio de un producto tanto en su modalidad autoservicio como asistido (prefijo `A`).
 
 Para la búsqueda de la estación con el precio más bajo para el producto dado, considera el precio tanto en modalidad autoservicio como asistido.
+
+Ejemplo de respuesta para `/api/stations/search?lat=-33.4290062&lng=-70.6228354&product=kerosene&nearest=true&store=true&cheapest=true`
+
+```
+{
+    "success": true,
+    "data": {
+        "id": 1949,
+        "compania": "SHELL",
+        "direccion": "San Ignacio 2470",
+        "comuna": "San Miguel",
+        "region": "Metropolitana de Santiago",
+        "latitud": -33.4771200551,
+        "longitud": -70.6535643339,
+        "distancia(lineal)": 5.5724913982,
+        "preciosKE": 1060,
+        "tiene_tienda": true
+    }
+}
+```
