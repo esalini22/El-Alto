@@ -184,3 +184,14 @@ def find_cheapest(data: dict[str, ], producto: str):
             stations.append(station)
 
     return stations
+
+def clean_empty_product(data: dict[str, ], producto: str):
+    stations: dict[str, ] = []
+    for station in data:
+        if 'precios'+producto in station and station['precios'+producto]==0:
+            del station['precios'+producto]
+        elif 'preciosA'+producto in station and station['preciosA'+producto]==0:
+            del station['preciosA'+producto]
+        stations.append(station)
+    return stations
+    
