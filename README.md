@@ -1,5 +1,7 @@
 Para levantar la API, ejecutar desde una terminal de linux `python3 app.py`
 
+El programa se divide en `app.py` y `utils/helpers.py`, este último archivo contiene funciones de utilidad para la API, tales como funciones para inicializar la cache con los datos de las estaciones, calcular la distancia entre dos coordenadas y expresarlo en km, y filtrar las estaciones.
+
 La API se ejecuta en el puerto 5000.
 
 Para utilizar la API, se debe hacer uso de un cliente REST como Postman o VSCode con la extension REST Client.
@@ -16,7 +18,7 @@ Los demás parámetros son opcionales y deben tomar un valor `boolean` ("true" o
 
 La API es más rápida con usos subsecuentes, ya que en el primer uso debe cargar la data de las estaciones dentro del radio para las coordenadas dadas.
 
-Solo hace uso de estaciones dentro de un radio de aproximadamente 20km alrededor de las coordenadas dadas.
+Solo hace uso de estaciones dentro de un radio de aproximadamente 7km alrededor de las coordenadas dadas (se consideró inicialmente un radio de 20km, pero se redujo para para disminuir el tiempo de ejecución de la API).
 
 Guarda el precio de un producto tanto en su modalidad autoservicio como asistido (prefijo `A`).
 

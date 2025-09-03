@@ -1,5 +1,6 @@
-import json, requests, math
+import json
 from flask import Flask, jsonify, request, Response
+from utils.helpers import *
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
@@ -16,85 +17,39 @@ endpoints api bencinas:
 #json de estaciones y dict de marcas
 cache = { "stations": None, "marcas": {} }
 
-#devuelve la distancia lineal en km
-def distance(lat1: float, lat2: float, lng1: float, lng2: float):
-    y = abs(lat1-lat2)*111.32
-    x = abs(lng1-lng2)*111.32*math.cos((lat1+lat2)/2)
-    return math.sqrt((x**2)+(y**2))
-
-def init_marcas():
-    response = requests.get("https://api.bencinaenlinea.cl/api/marca_ciudadano")
-    try:
-        resp_json = response.json()
-    except ValueError:
-        return jsonify({"success": False, "error": "Response from external API was not valid JSON", "raw": response.text}), 502
-    marcas = {}
-    for f in resp_json["data"]:
-        marcas[f["id"]] = f["nombre"]
-    cache["marcas"] = marcas
-
-def init_stations():
-    response = requests.get("https://api.bencinaenlinea.cl/api/busqueda_estacion_filtro")
-
-    try:
-        resp_json = response.json()
-    except ValueError:
-        return jsonify({"success": False, "error": "Response from external API was not valid JSON", "raw": response.text}), 502
-    
-    cache["stations"] = resp_json["data"]
-    
-def station_has_store(id: int):
-    response = requests.get(f"https://api.bencinaenlinea.cl/api/estacion_ciudadano/{id}")
-    try:
-        resp_json = response.json()
-        for service in resp_json["data"]["servicios"]:
-            if service["id"]==4:
-                return True
-    except ValueError:
-        return jsonify({"success": False, "error": "Response from external API was not valid JSON", "raw": response.text}), 502
-    return False
-
 @app.route('/api/stations/search', methods=['GET'])
 def stationsGET():
     DATA = request.args
-
-    if "lat" not in DATA:
-        return jsonify({"success": False, "error": "lat query parameter required"}), 400
-
-    if "lng" not in DATA:
-        return jsonify({"success": False, "error": "lng query parameter required"}), 400
-
-    if "product" not in DATA:
-        return jsonify({"success": False, "error": "product query parameter required"}), 400
+    
+    args, error = check_args(DATA)
+    
+    if error is not None:
+        return jsonify({"success": False, "error": error}), 400
 
     #falta un type checking mas estrico en caso de que el input este mal
-    LAT: float = DATA.get("lat", type=float)
-    LNG: float  = DATA.get("lng", type=float)
-    PRODUCT: str  = DATA.get("product").lower()
-
-    if LAT < -90 or LAT > 90:
-        return jsonify({"success": False, "error": "invalid lat query parameter value"}), 400
-
-    if LNG < -180 or LNG > 180:
-        return jsonify({"success": False, "error": "invalid lng query parameter value"}), 400
-
-    if PRODUCT not in ("93", "95", "97", "diesel", "kerosene"):
-        return jsonify({"success": False, "error": "invalid product query parameter value"}), 400
-
-    NEAREST: bool = DATA.get("nearest", "false").lower() == "true"
-    STORE: bool = DATA.get("store", "false").lower() == "true"
-    CHEAPEST: bool = DATA.get("cheapest", "false").lower() == "true"
+    LAT = args["lat"]
+    LNG = args["lng"]
+    PRODUCT = args["product"]
+    NEAREST = args["nearest"]
+    STORE = args["store"]
+    CHEAPEST = args["cheapest"]
     
     #los productos en la API son 93, 95, 97, DI, y KE
     producto = PRODUCT[0:2].upper()
     
     #inicializamos el cache de estaciones
     if cache["stations"] is None or len(cache["stations"])==0:
-        init_stations()
+        cache["stations"], error = init_stations()
+        if error is not None:
+            return jsonify({"success": False, "error": "Response from external API stations was not a valid JSON", "raw": error}), 502
+        if check_stations_json(cache["stations"]) is False:
+            return jsonify({"success": False, "error": "Response from external API stations was not a valid JSON"}), 502
 
     #inicializamos el cache de marcas
     if cache["marcas"] is None or len(cache["marcas"])==0:
-        init_marcas()
+        cache["marcas"], error = init_marcas()
+        if error is not None:
+            return jsonify({"success": False, "error": "Response from external API brands was not a valid JSON", "raw": error}), 502
 
     #aqui se guardan las estaciones filtradas
     stations: dict[str, ] = []
@@ -107,7 +62,7 @@ def stationsGET():
         
         #estacion esta fuera de radio
         distancia_lineal = distance(LAT, station_latitud, LNG, station_longitud)
-        if distancia_lineal>20:
+        if distancia_lineal>7:
             continue
         
         if "tiene_tienda" not in item:
@@ -128,37 +83,9 @@ def stationsGET():
             "tiene_tienda": item["tiene_tienda"]
         }
 
-        for fuel in item["combustibles"]:
-            if producto == fuel["nombre_corto"]:
-                if fuel["precio"] is None:
-                    continue
-                price = fuel["precio"]
-
-                #el punto es separador de decimales (y los decimales siempre son 0 en el precio)
-                #nos quedamos con el lado izquierdo del punto
-                if len(price.split(".")[0])>2:
-                    price = int(price.split(".")[0])
-
-                #el punto es separador de miles
-                #eliminamos el punto
-                else:
-                    price = int(price.replace(".",""))
-                station["precios"+producto] += price
-            elif 'A'+producto == fuel["nombre_corto"]:
-                if fuel["precio"] is None:
-                    continue
-                price = fuel["precio"]
-
-                #el punto es separador de decimales (y los decimales siempre son 0 en el precio)
-                #nos quedamos con el lado izquierdo del punto
-                if len(price.split(".")[0])>2:
-                    price = int(price.split(".")[0])
-
-                #el punto es separador de miles
-                #eliminamos el punto
-                else:
-                    price = int(price.replace(".",""))
-                station["preciosA"+producto] += price
+        #buscamos precio de producto
+        station["precios"+producto] = find_price(item["combustibles"], producto)
+        station["preciosA"+producto] = find_price(item["combustibles"], 'A'+producto)
 
         #estacion no contiene combustible filtrado
         #no se añade estacion a arreglo
@@ -167,61 +94,27 @@ def stationsGET():
         
         stations.append(station)
 
-    #esto es lo que retornaremos
-    result = stations
-
     #filtramos las que tienen tienda
     if STORE is True:
-        stations = []
-        for station in result:
-            if station["tiene_tienda"] is True:
-                stations.append(station)
-        result = stations
+        stations = find_stations_with_store(stations)
         
     #buscamos la mas barata
     #aca se toma el producto ya sea autoservicio o asistido
     if CHEAPEST is True:
-        lowestPrice: int = 2**31
-        stations = []
-        #primero buscamos el valor mas barato
-        for station in result:
-            if station["precios"+producto] > 0 and station["precios"+producto] < lowestPrice:
-                lowestPrice = station["precios"+producto]
-            elif station["preciosA"+producto] > 0 and station["preciosA"+producto] < lowestPrice:
-                lowestPrice = station["preciosA"+producto]
-
-        #ahora devolvemos todas las estaciones con ese valor
-        for station in result:
-            if station["precios"+producto] == lowestPrice or station["preciosA"+producto] == lowestPrice:
-                stations.append(station)
-
-        result = stations
+        stations = find_cheapest(stations, producto)
         
-    #ahora buscamos la estacion mas cercana    
+    #ahora buscamos la estacion mas cercana   
     #si es que el largo de result es mayor a 1
-    if NEAREST is True and len(result)>1:
-        stations = []
-        lowestDistance = 21
-        #primero buscamos la distancia lineal mas pequeña
-        for station in result:
-            if station["distancia(lineal)"] < lowestDistance:
-                lowestDistance = station["distancia(lineal)"]
-                
-        #ahora la estacion a esa distancia
-        for station in result:
-            if station["distancia(lineal)"] == lowestDistance:
-                stations.append(station)
-                break
-                
-        result = stations        
+    if NEAREST is True and len(stations)>1:
+        stations = find_nearest(stations)
     
     #no se usa jsonify para que no cambie orden de keys
     #return jsonify({"success": True, "data": result})
 
-    if len(result)==1:
-        result = result[0]
+    if len(stations)==1:
+        stations = stations[0]
 
-    response = {"success": True, "data": result}
+    response = {"success": True, "data": stations}
 
     return Response(
         json.dumps(response, ensure_ascii=False, sort_keys=False),
