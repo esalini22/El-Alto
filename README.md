@@ -41,7 +41,7 @@ Ejemplo de respuesta para `/api/stations/search?lat=-33.4290062&lng=-70.6228354&
         "region": "Metropolitana de Santiago",
         "latitud": -33.4771200551,
         "longitud": -70.6535643339,
-        "distancia(lineal)": 5.5724913982,
+        "distancia(lineal)": 5.57,
         "preciosKE": 1060,
         "tiene_tienda": true
     }
