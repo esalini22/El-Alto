@@ -26,7 +26,6 @@ def stationsGET():
     if error is not None:
         return jsonify({"success": False, "error": error}), 400
 
-    #falta un type checking mas estrico en caso de que el input este mal
     LAT = args["lat"]
     LNG = args["lng"]
     PRODUCT = args["product"]
@@ -55,7 +54,7 @@ def stationsGET():
     stations: dict[str, ] = []
 
     #se filtra por tipo de producto
-    #ademas estaciones deben estar dentro de radio de 20km
+    #ademas estaciones deben estar dentro de radio de 7km
     for item in cache["stations"]:
         station_latitud = round(float(item["latitud"].replace(",",".")),10)
         station_longitud = round(float(item["longitud"].replace(",",".")),10)
@@ -107,9 +106,6 @@ def stationsGET():
     #si es que el largo de result es mayor a 1
     if NEAREST is True and len(stations)>1:
         stations = find_nearest(stations)
-    
-    #no se usa jsonify para que no cambie orden de keys
-    #return jsonify({"success": True, "data": result})
 
     stations = clean_empty_product(stations, producto)
 
@@ -118,6 +114,7 @@ def stationsGET():
 
     response = {"success": True, "data": stations}
 
+    #no se usa jsonify para que no cambie orden de keys
     return Response(
         json.dumps(response, ensure_ascii=False, sort_keys=False),
         mimetype="application/json"
