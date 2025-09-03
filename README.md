@@ -14,7 +14,10 @@ El valor de `lng` es un `float` entre -180 y 180.
 
 El valor de `product` es un `string` y debe estar dentro de ("93", "95", "97", "diesel", "kerosene").
 
-Los demás parámetros son opcionales y deben tomar un valor `boolean` ("true" o "false").
+Los demás parámetros son opcionales y deben tomar un valor `boolean` ("true" o "false"):
+- `nearest`: Este valor devuelve la estación más cercana.
+- `cheapest`: Este valor devuelve las estaciones con el precio del producto especificado más bajo.
+- `store`: Este valor devuelve las estaciones que poseen tienda.
 
 La API es más rápida con usos subsecuentes, ya que en el primer uso debe cargar la data de las estaciones dentro del radio para las coordenadas dadas.
 
